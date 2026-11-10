@@ -3,11 +3,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
-# عداد المشاهدات اللي جابها البوت
 bot_views = 0
 used_proxies = set()
 
-# تعديل السيرفر الوهمي عشان يعرض العداد حقنا
 class BotHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -45,7 +43,7 @@ def watch_video(bot_id):
         
         if not available_proxies:
             used_proxies.clear()
-            time.sleep(600)
+            time.sleep(60) # انتظار دقيقة وحدة بس لو خلصت البروكسيات
             continue
             
         proxy = random.choice(available_proxies)
@@ -60,14 +58,13 @@ def watch_video(bot_id):
         
         try:
             driver = webdriver.Chrome(options=chrome_options)
-            driver.set_page_load_timeout(60)
+            driver.set_page_load_timeout(30)
             driver.get(video_url)
             
-            # مشاهدة 10 دقايق مع وقت عشوائي
-            watch_time = 600 + random.randint(30, 90)
+            # ⏳ التعديل السحري: مشاهدة 30 إلى 35 ثانية فقط لأن الفيديو قصير!
+            watch_time = random.randint(30, 35)
             time.sleep(watch_time)
             
-            # لو كمل المشاهدة بدون ما يفصل، زيد العداد!
             bot_views += 1
             
         except Exception as e:
@@ -77,13 +74,15 @@ def watch_video(bot_id):
                 driver.quit()
             except:
                 pass
-        time.sleep(10)
+        
+        # استراحة ثانية وحدة بس ويطير للآي بي اللي بعده!
+        time.sleep(1)
 
 NUM_THREADS = 3
 for i in range(NUM_THREADS):
     t = threading.Thread(target=watch_video, args=(i+1,))
     t.start()
-    time.sleep(5)
+    time.sleep(3)
 
 while True:
     time.sleep(3600)

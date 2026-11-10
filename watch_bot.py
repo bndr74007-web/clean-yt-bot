@@ -1,16 +1,23 @@
-import os
-import requests
-import random
-import time
-import threading
+import os, requests, random, time, threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
-# خادم الويب الوهمي عشان راوند ما يطفي السيرفر
+# عداد المشاهدات اللي جابها البوت
+bot_views = 0
+used_proxies = set()
+
+# تعديل السيرفر الوهمي عشان يعرض العداد حقنا
+class BotHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(str(bot_views).encode('utf-8'))
+
 def keep_alive():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), BaseHTTPRequestHandler)
+    server = HTTPServer(('0.0.0.0', port), BotHandler)
     server.serve_forever()
 
 threading.Thread(target=keep_alive, daemon=True).start()
@@ -23,33 +30,26 @@ if not video_url:
     except:
         video_url = "https://youtu.be/9Uz04LYQe5k?si=m5KdjuWAC8_DMGs_"
 
-# ذاكرة البوت لتسجيل الآي بي هات المستخدمة عشان ما يكررها
-used_proxies = set()
-
 def get_free_proxies():
-    url = "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get("https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt", timeout=10)
         return response.text.strip().split('\n')
     except:
         return []
 
 def watch_video(bot_id):
-    global used_proxies
+    global used_proxies, bot_views
     while True:
         proxies = get_free_proxies()
-        # فلترة البروكسيات: أخذ اللي ما تم استخدامها فقط
         available_proxies = [p for p in proxies if p not in used_proxies]
         
         if not available_proxies:
-            print(f"[بوت {bot_id}] خلصت كل البروكسيات! بنتظر 10 دقايق تتحدث القائمة...")
-            used_proxies.clear() # تفريغ الذاكرة إذا خلصت القائمة كلها
+            used_proxies.clear()
             time.sleep(600)
             continue
             
         proxy = random.choice(available_proxies)
-        used_proxies.add(proxy) # تسجيل الآي بي كمُستخدم
-        print(f"[بوت {bot_id}] تم استلام IP جديد: {proxy}")
+        used_proxies.add(proxy)
         
         chrome_options = Options()
         chrome_options.add_argument("--headless")
@@ -63,32 +63,27 @@ def watch_video(bot_id):
             driver.set_page_load_timeout(60)
             driver.get(video_url)
             
-            # مشاهدة الفيديو بالكامل (مثلاً نفترض أن الفيديو 10 دقايق = 600 ثانية)
-            # تم إضافة وقت عشوائي عشان يوتيوب ما يشك إنه بوت
-            watch_time = 600 + random.randint(30, 90) 
-            print(f"[بوت {bot_id}] جاري مشاهدة الفيديو لمدة {watch_time} ثانية...")
+            # مشاهدة 10 دقايق مع وقت عشوائي
+            watch_time = 600 + random.randint(30, 90)
             time.sleep(watch_time)
             
+            # لو كمل المشاهدة بدون ما يفصل، زيد العداد!
+            bot_views += 1
+            
         except Exception as e:
-            print(f"[بوت {bot_id}] الآي بي طلع ميت أو بطيء، جاري تبديله فوراً...")
+            pass
         finally:
             try:
                 driver.quit()
             except:
                 pass
-        
-        # استراحة قصيرة قبل الهجوم بآي بي جديد
         time.sleep(10)
 
-# تشغيل 3 نسخ متوازية في نفس اللحظة (الحد الأقصى للرام المجاني)
 NUM_THREADS = 3
-
-print(f"🚀 إطلاق {NUM_THREADS} متصفحات متزامنة بآي بي هات مختلفة...")
 for i in range(NUM_THREADS):
     t = threading.Thread(target=watch_video, args=(i+1,))
     t.start()
-    time.sleep(5) # تأخير بسيط بين كل بوت عشان ما يختنق السيرفر
+    time.sleep(5)
 
-# إبقاء السكربت شغال
 while True:
     time.sleep(3600)
